@@ -1,0 +1,7 @@
+name: kasm
+version: 0.1.0
+description: >
+  Operate any Kasm Workspaces session (Chrome, Terminal, desktops) through Kasm's own API:
+  start a session, look at the screen, click, type, press keys, scroll, and stop it.
+  Works with stock Kasm images — nothing is baked into the workspace.
+provides_tools: [kasm_list, kasm_start, kasm_look, kasm_click, kasm_type, kasm_key, kasm_scroll, kasm_stop]

@@ -1,0 +1,20 @@
+# Publishes to PyPI on a v* tag using PyPI Trusted Publishing (no API token stored).
+# One-time setup on pypi.org: add a pending publisher for project kasm-use,
+# owner rchurro, repo kasm-use, workflow pypi.yml, environment pypi.
+name: PyPI
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build
+      - uses: pypa/gh-action-pypi-publish@release/v1
