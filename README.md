@@ -182,6 +182,18 @@ The VNC client is built in and uses only the Python standard library.
 - Each tool call opens a short VNC connection and does a round trip before closing, so no input
   is lost on disconnect. The owner can stay connected at the same time.
 
+**What this relies on.** None of this is an official Kasm API; it's how Kasm's own web viewer
+connects, observed on Kasm 1.19.0:
+
+- Kasm's proxy accepts the `username` + `session_token` cookies that `request_kasm` returns, and
+  requires an `Origin` header matching the Kasm host.
+- Behind the proxy, KasmVNC offers VNC authentication and accepts an empty password (the proxy
+  has already authenticated you).
+- KasmVNC's pointer message is 11 bytes (visible in its open-source web client).
+
+A Kasm update or a different install type could change any of these. If kasm-use stops
+connecting, that's the likely cause, and an issue with your Kasm version and install type helps.
+
 ## License
 
 MIT
