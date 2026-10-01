@@ -2,9 +2,10 @@
 
 Shared by the MCP server (kasm_use.server) and the Hermes Agent plugin (register() below).
 
-Eyes  : POST /api/public/get_kasm_screenshot            (KasmVNC in the session renders a JPEG)
-Hands : POST /api/public/exec_command_kasm + xdotool     (installed into the session at start;
-                                                          stock images don't ship it)
+Eyes  : POST /api/public/get_kasm_screenshot   (KasmVNC in the session renders a JPEG)
+Hands : KasmVNC itself, over Kasm's proxy      (see vnc.py) for sessions kasm_start created;
+        exec_command_kasm + xdotool as a fallback for sessions started elsewhere, which
+        need xdotool already present in the image
 
 Configuration comes from the environment only:
   KASM_API_URL, KASM_API_KEY, KASM_API_KEY_SECRET  - a Kasm API key (session permissions only)
@@ -13,7 +14,7 @@ Configuration comes from the environment only:
 
 Coordinates: every click/scroll uses the coordinate space of the most recent kasm_look image for
 that session. The real desktop is usually much larger (and changes when the owner connects and
-KasmVNC resizes it), so we scale inside the session using `xdotool getdisplaygeometry`.
+KasmVNC resizes it); VNC reports its current size on connect, so clicks are scaled to it.
 
 Lessons baked in:
 - exec_command_kasm is fire-and-forget: it never returns command output.
@@ -34,12 +35,18 @@ import time
 import urllib.error
 import urllib.request
 
+from . import vnc
+
 TOOLSET = "kasm"
 _REQUIRED_ENV = ["KASM_API_URL", "KASM_API_KEY", "KASM_API_KEY_SECRET", "KASM_USER_ID"]
 _SHOT_W, _SHOT_H = 1280, 800
 _INSTALL_WAIT_S = 90
 _CTX = (ssl.create_default_context() if os.environ.get("KASM_VERIFY_TLS", "true").lower() not in ("0", "false", "no")
         else ssl._create_unverified_context())
+
+# kasm_id (no dashes) -> {"username", "session_token", "path"} from request_kasm / get_kasm_status. Needed for VNC; held in
+# memory only, never logged or returned to the model.
+_VNC_CREDS: dict[str, dict] = {}
 
 # kasm_id -> (image_width, image_height) of the last screenshot shown to the model.
 # Per process: one server instance serves one Kasm user.
@@ -91,6 +98,31 @@ def _jpeg_size(data: bytes) -> tuple[int, int] | None:
     return None
 
 
+def _kid(kasm_id: str) -> str:
+    return kasm_id.replace("-", "")
+
+
+def _vnc_session(kid: str):
+    """An open VNC input connection for this session, or None if kasm-use didn't start it."""
+    creds = _VNC_CREDS.get(_kid(kid))
+    if not creds:
+        return None
+    if not creds.get("path"):
+        status = _call("get_kasm_status", kasm_id=kid, user_id=_user()).get("kasm") or {}
+        creds["path"] = ((status.get("port_map") or {}).get("vnc") or {}).get("path")
+        if not creds["path"]:
+            raise RuntimeError("Kasm did not report a VNC path for this session.")
+    return vnc.Session(os.environ["KASM_API_URL"], creds["path"], creds["username"], creds["session_token"], _CTX)
+
+
+def _to_desktop(kid: str, x, y, width: int, height: int) -> tuple[int, int]:
+    w, h = _LAST_SHOT.get(_kid(kid), (0, 0))
+    if not w:
+        raise RuntimeError("Call kasm_look first so coordinates can be mapped to the screen.")
+    x, y = max(0, min(int(x), w - 1)), max(0, min(int(y), h - 1))
+    return x * width // w, y * height // h
+
+
 def _ok(**fields) -> str:
     return json.dumps({"ok": True, **fields})
 
@@ -136,6 +168,8 @@ def kasm_start(args, **kw):
         img = sorted(matches, key=lambda i: i.get("name") or "")[-1]
         started = _call("request_kasm", image_id=img["image_id"], user_id=_user(), enable_sharing=False)
         kid = started["kasm_id"]
+        if started.get("session_token") and started.get("username"):
+            _VNC_CREDS[_kid(kid)] = {"username": started["username"], "session_token": started["session_token"]}
         for _ in range(60):
             status = (_call("get_kasm_status", kasm_id=kid, user_id=_user()).get("kasm") or {}).get("operational_status")
             if status == "running":
@@ -143,12 +177,13 @@ def kasm_start(args, **kw):
             time.sleep(5)
         else:
             return _err(f"Session {kid} did not reach 'running'.")
-        # Hands: stock images lack xdotool; install it (Debian/Ubuntu images). Fire-and-forget,
-        # so wait for apt to finish.
-        _exec(kid, "sh -c 'command -v xdotool >/dev/null || { apt-get update -qq && "
-                   "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xdotool; } >/tmp/.kasm-use-xdotool.log 2>&1'",
-              root=True)
-        time.sleep(_INSTALL_WAIT_S)
+        if _kid(kid) not in _VNC_CREDS:
+            # No VNC token (older Kasm?): fall back to xdotool, which stock images lack. Install it
+            # (Debian/Ubuntu images); exec is fire-and-forget, so wait for apt to finish.
+            _exec(kid, "sh -c 'command -v xdotool >/dev/null || { apt-get update -qq && "
+                       "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xdotool; } >/tmp/.kasm-use-xdotool.log 2>&1'",
+                  root=True)
+            time.sleep(_INSTALL_WAIT_S)
         return _ok(session_id=kid, workspace=img.get("friendly_name"), image=img.get("name"),
                    note="Session is running and visible in the owner's Kasm dashboard. Call kasm_look next.")
     except Exception as e:
@@ -159,6 +194,22 @@ def kasm_look(args, **kw):
     try:
         kid = _resolve_session(args)
         time.sleep(float(args.get("wait_seconds", 2)))
+        session = _vnc_session(kid)
+        if session:
+            # Live frame over VNC. Kasm's screenshot API is stale while nobody is viewing.
+            with session as s:
+                png, size = s.screenshot(), (s.width, s.height)
+            _LAST_SHOT[_kid(kid)] = size
+            summary = (f"Screenshot of Kasm session {kid[:8]} ({size[0]}x{size[1]}, live). Give kasm_click / "
+                       f"kasm_scroll coordinates in THIS image's pixels.")
+            return {
+                "_multimodal": True,
+                "content": [
+                    {"type": "text", "text": summary},
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(png).decode()}},
+                ],
+                "text_summary": summary,
+            }
         img = b""
         for _ in range(8):
             img = _call("get_kasm_screenshot", raw=True, kasm_id=kid, user_id=_user(), width=_SHOT_W, height=_SHOT_H)
@@ -168,7 +219,7 @@ def kasm_look(args, **kw):
         if img[:2] != b"\xff\xd8":
             return _err("Screenshot not available yet (the desktop may still be starting). Try again.")
         size = _jpeg_size(img) or (_SHOT_W, _SHOT_H)
-        _LAST_SHOT[kid] = size
+        _LAST_SHOT[_kid(kid)] = size
         summary = (f"Screenshot of Kasm session {kid[:8]} ({size[0]}x{size[1]}). Give kasm_click / kasm_scroll "
                    f"coordinates in THIS image's pixels. The view can lag a few seconds behind actions.")
         return {
@@ -184,7 +235,7 @@ def kasm_look(args, **kw):
 
 
 def _scaled_xy(kid: str, x: int, y: int) -> tuple[str, str]:
-    w, h = _LAST_SHOT.get(kid, (0, 0))
+    w, h = _LAST_SHOT.get(_kid(kid), (0, 0))
     if not w:
         raise RuntimeError("Call kasm_look first so coordinates can be mapped to the screen.")
     x, y = max(0, min(int(x), w - 1)), max(0, min(int(y), h - 1))
@@ -194,8 +245,14 @@ def _scaled_xy(kid: str, x: int, y: int) -> tuple[str, str]:
 def kasm_click(args, **kw):
     try:
         kid = _resolve_session(args)
-        sx, sy = _scaled_xy(kid, args["x"], args["y"])
         button = {"left": 1, "middle": 2, "right": 3}.get(args.get("button", "left"), 1)
+        session = _vnc_session(kid)
+        if session:
+            with session as s:
+                s.click(*_to_desktop(kid, args["x"], args["y"], s.width, s.height), button,
+                        2 if args.get("double") else 1)
+            return _ok(session_id=kid, clicked=[args["x"], args["y"]], via="vnc")
+        sx, sy = _scaled_xy(kid, args["x"], args["y"])
         repeat = "--repeat 2 " if args.get("double") else ""
         _exec(kid, f"sh -c 'eval $(xdotool getdisplaygeometry --shell); "
                    f"xdotool mousemove {sx} {sy} sleep 0.1 click {repeat}{button}'")
@@ -210,6 +267,13 @@ def kasm_type(args, **kw):
         return _err("text is required")
     try:
         kid = _resolve_session(args)
+        session = _vnc_session(kid)
+        if session:
+            with session as s:
+                s.type(text)
+                if args.get("press_enter"):
+                    s.combo([vnc.keysym("Return")])
+            return _ok(session_id=kid, typed_chars=len(text), pressed_enter=bool(args.get("press_enter")), via="vnc")
         # Text travels as an env var, never inside the shell string: no quoting/injection issues.
         _exec(kid, "sh -c 'xdotool type --delay 35 -- \"$KASM_USE_TEXT\"'", env={"KASM_USE_TEXT": text})
         if args.get("press_enter"):
@@ -230,6 +294,13 @@ def kasm_key(args, **kw):
         return _err(f"keys must be xdotool key names like ctrl+l, Return, Tab, Escape (invalid: {bad})")
     try:
         kid = _resolve_session(args)
+        session = _vnc_session(kid)
+        if session:
+            combos = [[vnc.keysym(part) for part in k.split("+") if part] for k in keys]
+            with session as s:
+                for combo in combos:
+                    s.combo(combo)
+            return _ok(session_id=kid, keys=keys, via="vnc")
         _exec(kid, "sh -c 'xdotool key " + " ".join(keys) + "'")
         return _ok(session_id=kid, keys=keys)
     except Exception as e:
@@ -241,6 +312,15 @@ def kasm_scroll(args, **kw):
         kid = _resolve_session(args)
         button = {"up": 4, "down": 5, "left": 6, "right": 7}.get(args.get("direction", "down"), 5)
         amount = max(1, min(int(args.get("amount", 5)), 30))
+        session = _vnc_session(kid)
+        if session:
+            with session as s:
+                if "x" in args and "y" in args:
+                    x, y = _to_desktop(kid, args["x"], args["y"], s.width, s.height)
+                else:
+                    x, y = s.width // 2, s.height // 2
+                s.scroll(x, y, args.get("direction", "down"), amount)
+            return _ok(session_id=kid, direction=args.get("direction", "down"), amount=amount, via="vnc")
         move = ""
         if "x" in args and "y" in args:
             sx, sy = _scaled_xy(kid, args["x"], args["y"])
@@ -255,7 +335,8 @@ def kasm_stop(args, **kw):
     try:
         kid = _resolve_session(args)
         _call("destroy_kasm", kasm_id=kid, user_id=_user())
-        _LAST_SHOT.pop(kid, None)
+        _LAST_SHOT.pop(_kid(kid), None)
+        _VNC_CREDS.pop(_kid(kid), None)
         return _ok(session_id=kid, stopped=True)
     except Exception as e:
         return _err(str(e))
@@ -269,7 +350,7 @@ _TOOLS = [
      {"type": "object", "properties": {}}),
     ("kasm_start", kasm_start,
      "Start a Kasm workspace session (e.g. 'Chrome', 'Terminal') as the owner, so they can watch it. "
-     "Takes ~2 minutes (it installs the input tool). Then call kasm_look.",
+     "Returns once the session is running; then call kasm_look.",
      {"type": "object", "properties": {"workspace": {"type": "string", "description": "Workspace name, e.g. Chrome"}}}),
     ("kasm_look", kasm_look,
      "Screenshot the Kasm session so you can see it. Always look before clicking, and look again after "

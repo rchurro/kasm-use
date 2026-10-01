@@ -18,8 +18,8 @@ sees the desktop and operates it, like computer-use or browser-use, inside your 
 | Tool | What it does |
 | --- | --- |
 | `kasm_list` | Workspaces you can start, and your running sessions |
-| `kasm_start` | Start a workspace (e.g. `Chrome`) — takes ~2 min, see [Limitations](#limitations) |
-| `kasm_look` | Screenshot of the session, returned as an image |
+| `kasm_start` | Start a workspace (e.g. `Chrome`); returns once the session is running |
+| `kasm_look` | Live screenshot of the session, returned as an image (~1 s) |
 | `kasm_click` | Click at x,y in the latest screenshot's coordinates |
 | `kasm_type` | Type text into the focused field |
 | `kasm_key` | Keys/shortcuts, e.g. `ctrl+l`, `Return`, `Tab` |
@@ -28,12 +28,12 @@ sees the desktop and operates it, like computer-use or browser-use, inside your 
 
 ## Requirements
 
-- Kasm Workspaces **1.19 or newer** (the screenshot API needs 1.19 images).
+- Kasm Workspaces **1.19 or newer** (tested on 1.19.0).
 - A Kasm **API key**: Admin → Settings → Developers → API Keys → Add. Grant it only the session
   permissions (create/list/destroy sessions, screenshot, exec). It does not need user or admin rights.
 - Your Kasm **user ID**, so sessions belong to you: Admin → Access Management → Users → open your user;
   the ID is in the page URL.
-- A workspace image based on Debian/Ubuntu (all official `kasmweb/*` images are).
+- Any workspace image. Nothing is installed in the session for sessions kasm-use starts.
 
 ## Configuration
 
@@ -101,22 +101,31 @@ Hermes session (`/new`) so the tools load.
 
 ## Limitations
 
-- **First start is slow (~90 s extra).** Stock images don't include `xdotool`, so `kasm_start`
-  installs it in the session as root. Reusing a running session skips this.
-- **Screenshots can lag** a few seconds behind actions; the agent is told to look again to confirm.
-- **Kasm's exec API returns no output**, so actions report "sent", not "succeeded". The next
-  screenshot is the confirmation.
+- **Full control needs sessions kasm-use started.** Kasm only hands out the per-session login
+  token that VNC needs when a session is created, so kasm-use keeps it (in memory) for sessions
+  it starts. Sessions started elsewhere fall back to Kasm's exec API + `xdotool`, which must
+  already be in the image, and to Kasm's screenshot API, which is only fresh while someone is
+  viewing the session. Restarting the server forgets the tokens.
+- **Input reports "sent", not "succeeded".** The next screenshot is the confirmation.
 - **CAPTCHAs, passwords, MFA and payments are handed to you.** The tool descriptions tell the agent
   never to type them; open the session in Kasm and take over.
 - It's slow compared to a local browser tool: every step is a screenshot round trip.
 
 ## How it works
 
-- **Eyes:** `POST /api/public/get_kasm_screenshot` (KasmVNC renders a JPEG).
-- **Hands:** `POST /api/public/exec_command_kasm` running `xdotool` inside the session.
-- Clicks are given in screenshot pixels and scaled to the real desktop size inside the session
-  (`xdotool getdisplaygeometry`), using the JPEG's actual dimensions — Kasm keeps the desktop's
-  aspect ratio, so the image is often not the size requested.
+kasm-use talks to each session's KasmVNC server directly, through Kasm's own proxy
+(`wss://<kasm>/desktop/<id>/vnc/websockify`), with the login token `request_kasm` returns.
+The VNC client is built in and uses only the Python standard library.
+
+- **Eyes:** a full framebuffer read over VNC (ZRLE, decoded with `zlib`), returned as PNG.
+  Kasm's screenshot API isn't used for these sessions: it only refreshes while a viewer is
+  connected, so with nobody watching it returns stale frames.
+- **Hands:** VNC pointer and key events. KasmVNC's pointer message is 11 bytes (16-bit button
+  mask plus scroll deltas), not standard RFB's 6.
+- Clicks are given in screenshot pixels and scaled to the desktop's current size, which VNC reports
+  on connect — it changes when someone opens the session and Kasm resizes it to their window.
+- Each tool call opens a short VNC connection and does a round trip before closing, so no input
+  is lost on disconnect. The owner can stay connected at the same time.
 
 ## License
 
