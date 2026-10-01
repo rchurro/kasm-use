@@ -1,0 +1,58 @@
+name: Test report
+description: Tried kasm-use? Tell us how it went — it worked, it broke, or something in between.
+labels: ["test report"]
+body:
+  - type: dropdown
+    id: result
+    attributes:
+      label: How did it go?
+      options:
+        - Worked
+        - Partly worked
+        - Didn't work
+    validations:
+      required: true
+  - type: input
+    id: kasm_version
+    attributes:
+      label: Kasm Workspaces version
+      placeholder: e.g. 1.19.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is Kasm installed?
+      options:
+        - Official installer (single server)
+        - Official installer (multi-server)
+        - linuxserver/kasm Docker image
+        - Kasm Cloud / hosted
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: images
+    attributes:
+      label: Workspace image(s)
+      placeholder: e.g. kasmweb/chrome:1.19.0
+  - type: input
+    id: client
+    attributes:
+      label: MCP client / agent and model
+      placeholder: e.g. Claude Code, Hermes Agent, Cursor — and which model
+  - type: dropdown
+    id: transport
+    attributes:
+      label: How did you run kasm-use?
+      options:
+        - uvx kasm-use (stdio)
+        - Docker / HTTP
+        - Hermes plugin
+  - type: textarea
+    id: what
+    attributes:
+      label: What did you ask the agent to do, and what happened?
+      description: Tool responses are very helpful. Do NOT paste API keys, session tokens or URLs containing tokens.
+    validations:
+      required: true

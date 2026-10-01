@@ -13,6 +13,15 @@ sees the desktop and operates it, like computer-use or browser-use, inside your 
   your Kasm dashboard. Open one to watch the agent work, or to handle a login or CAPTCHA yourself.
 - **Your Kasm, your key.** You run the server next to your own Kasm. Nothing goes through a third party.
 
+## Status: early — testers wanted
+
+kasm-use works well on the setup it was built on (Kasm 1.19.0 in linuxserver's Docker image;
+Chrome, Terminal and Minetest workspaces; Claude Code and Hermes Agent as clients). It talks to
+parts of Kasm that aren't documented, so other versions and install types are the big unknown.
+If you try it, please [open an issue](https://github.com/rchurro/kasm-use/issues/new/choose),
+whether it worked or not: your Kasm version, how Kasm is installed, the workspace image and your
+MCP client are the most useful details.
+
 ## Tools
 
 | Tool | What it does |
@@ -29,8 +38,16 @@ sees the desktop and operates it, like computer-use or browser-use, inside your 
 ## Requirements
 
 - Kasm Workspaces **1.19 or newer** (tested on 1.19.0).
-- A Kasm **API key**: Admin → Settings → Developers → API Keys → Add. Grant it only the session
-  permissions (create/list/destroy sessions, screenshot, exec). It does not need user or admin rights.
+- A Kasm **API key**: Admin → Settings → Developers → API Keys → Add, then edit its permissions.
+  This is the set kasm-use is tested with (no admin permissions needed):
+
+  - **Images View**, **User**, **Users Auth Session** — required to start sessions (confirmed:
+    without them `kasm_start` fails with `Unauthorized`).
+  - **Sessions View**, **Sessions Modify**, **Sessions Delete**, **Session Recordings View** —
+    listing, status, stopping, and the screenshot/exec fallback for sessions kasm-use didn't start.
+
+  A missing permission shows up as `Unauthorized` from the tool that needs it. If you find a smaller
+  set that works, please say so in an issue.
 - Your Kasm **user ID**, so sessions belong to you: Admin → Access Management → Users → open your user;
   the ID is in the page URL.
 - Any workspace image. Nothing is installed in the session for sessions kasm-use starts.
@@ -98,6 +115,20 @@ cp -r hermes-plugin/kasm ~/.hermes/plugins/kasm
 
 Enable `kasm` under `plugins.enabled`, set the environment variables above, and start a new
 Hermes session (`/new`) so the tools load.
+
+## Safety
+
+An agent with these tools drives a real desktop on your network, so treat it like handing someone
+your mouse and keyboard.
+
+- **Use throwaway workspaces.** Don't let the agent work in a session that's logged into your
+  real accounts, and don't save passwords in workspace images it uses.
+- **Web pages can talk to the agent.** Text on a page it visits can try to steer it (prompt
+  injection). Keep a human watching for anything that matters.
+- **Traffic comes from your network.** Whatever the agent browses comes from your Kasm host's IP
+  address. Kasm's per-workspace VPN/egress settings can route it elsewhere.
+- The tool descriptions tell the agent never to type passwords, MFA codes or payment details and
+  to hand CAPTCHAs to you, but that is guidance to the model, not enforcement.
 
 ## Limitations
 
