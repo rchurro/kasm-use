@@ -25,6 +25,18 @@ desktops and use them the way a person would.
 *Three sessions started and driven by agents in parallel (Chrome, Minetest, Terminal), next to the
 workspaces you can start. Open any of them to watch live or take over.*
 
+How the pieces connect:
+
+```mermaid
+flowchart LR
+    agent["AI agent<br/>(any MCP client or Hermes)"] -->|"tool calls:<br/>look, click, type"| ku["kasm-use"]
+    ku -->|"start / list / stop<br/>(API key)"| api["Kasm API"]
+    api -->|"starts container"| desk
+    ku -->|"screenshots + input<br/>(VNC over websocket)"| proxy["Kasm proxy"]
+    you["You, in the<br/>Kasm dashboard"] -->|"watch or take over"| proxy
+    proxy --> desk["Session desktop<br/>(KasmVNC in a container)"]
+```
+
 ## Status: early — testers wanted
 
 kasm-use works well on the setup it was built on (Kasm 1.19.0 in linuxserver's Docker image;
@@ -155,16 +167,6 @@ your mouse and keyboard.
 - It's slow compared to a local browser tool: every step is a screenshot round trip.
 
 ## How it works
-
-```mermaid
-flowchart LR
-    agent["AI agent<br/>(any MCP client or Hermes)"] -->|"tool calls:<br/>look, click, type"| ku["kasm-use"]
-    ku -->|"start / list / stop<br/>(API key)"| api["Kasm API"]
-    api -->|"starts container"| desk
-    ku -->|"screenshots + input<br/>(VNC over websocket)"| proxy["Kasm proxy"]
-    you["You, in the<br/>Kasm dashboard"] -->|"watch or take over"| proxy
-    proxy --> desk["Session desktop<br/>(KasmVNC in a container)"]
-```
 
 kasm-use talks to each session's KasmVNC server directly, through Kasm's own proxy
 (`wss://<kasm>/desktop/<id>/vnc/websockify`), with the login token `request_kasm` returns.
