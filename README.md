@@ -156,6 +156,16 @@ your mouse and keyboard.
 
 ## How it works
 
+```mermaid
+flowchart LR
+    agent["AI agent<br/>(any MCP client or Hermes)"] -->|"tool calls:<br/>look, click, type"| ku["kasm-use"]
+    ku -->|"start / list / stop<br/>(API key)"| api["Kasm API"]
+    api -->|"starts container"| desk
+    ku -->|"screenshots + input<br/>(VNC over websocket)"| proxy["Kasm proxy"]
+    you["You, in the<br/>Kasm dashboard"] -->|"watch or take over"| proxy
+    proxy --> desk["Session desktop<br/>(KasmVNC in a container)"]
+```
+
 kasm-use talks to each session's KasmVNC server directly, through Kasm's own proxy
 (`wss://<kasm>/desktop/<id>/vnc/websockify`), with the login token `request_kasm` returns.
 The VNC client is built in and uses only the Python standard library.
