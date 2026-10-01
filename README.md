@@ -8,10 +8,22 @@ Other Kasm MCP servers manage sessions (start, list, stop). **kasm-use actually 
 sees the desktop and operates it, like computer-use or browser-use, inside your Kasm.
 
 - **Works with stock Kasm images.** Nothing is baked into the workspace; it drives the desktop
-  through Kasm's own API.
+  through Kasm's API and the session's own KasmVNC connection.
 - **You can watch and take over.** Sessions are created as *your* Kasm user, so they show up in
   your Kasm dashboard. Open one to watch the agent work, or to handle a login or CAPTCHA yourself.
 - **Your Kasm, your key.** You run the server next to your own Kasm. Nothing goes through a third party.
+
+### What's Kasm?
+
+[Kasm Workspaces](https://kasmweb.com) streams disposable desktops and apps to your web browser,
+each running in its own container on a server you control. Click "Chrome" and you get a fresh
+Chrome in a browser tab; close it and it's wiped. kasm-use lets an AI agent sit down at those
+desktops and use them the way a person would.
+
+![Kasm dashboard with three sessions an agent is driving: Chrome on GitHub, Minetest in a loaded world, and a Terminal with command output](https://raw.githubusercontent.com/rchurro/kasm-use/main/docs/kasm-dashboard.jpg)
+
+*Three sessions started and driven by agents in parallel (Chrome, Minetest, Terminal), next to the
+workspaces you can start. Open any of them to watch live or take over.*
 
 ## Status: early — testers wanted
 
