@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 — 2026-10-02
+
+- Listed in the official MCP Registry as `io.github.rchurro/kasm-use` (`server.json`; releases
+  publish there automatically after PyPI). No code changes.
+
 ## 0.3.0 — 2026-10-02
 
 Scope hardening, prompted by a question about what an agent could reach.

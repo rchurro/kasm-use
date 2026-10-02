@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.rchurro/kasm-use",
+  "title": "kasm-use",
+  "description": "Computer-use for Kasm Workspaces: lets AI agents see and drive your Kasm desktops over KasmVNC.",
+  "repository": {
+    "url": "https://github.com/rchurro/kasm-use",
+    "source": "github"
+  },
+  "version": "0.3.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "kasm-use",
+      "version": "0.3.1",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {"name": "KASM_API_URL", "description": "Your Kasm URL, e.g. https://kasm.example.com", "isRequired": true, "format": "string"},
+        {"name": "KASM_API_KEY", "description": "Kasm API key (see README for the five permissions it needs)", "isRequired": true, "format": "string", "isSecret": true},
+        {"name": "KASM_API_KEY_SECRET", "description": "Kasm API key secret", "isRequired": true, "format": "string", "isSecret": true},
+        {"name": "KASM_USER_ID", "description": "Kasm user the agent's sessions are created for", "isRequired": true, "format": "string"},
+        {"name": "KASM_VERIFY_TLS", "description": "Set to false for a self-signed Kasm certificate", "isRequired": false, "format": "string", "default": "true"}
+      ]
+    }
+  ]
+}

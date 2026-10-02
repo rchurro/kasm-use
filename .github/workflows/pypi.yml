@@ -18,3 +18,28 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  mcp-registry:
+    # List the release in the official MCP Registry (registry.modelcontextprotocol.io).
+    # Runs after PyPI, because the registry checks the published package for the
+    # mcp-name marker in its README. Auth is GitHub OIDC: no token stored.
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mcp-publisher
+        run: |
+          curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+      - name: Set version from tag
+        run: |
+          V=${GITHUB_REF#refs/tags/v}
+          jq --arg v "$V" '.version = $v | .packages[0].version = $v' server.json > s.tmp && mv s.tmp server.json
+      - name: Wait for PyPI to serve the new version
+        run: |
+          V=${GITHUB_REF#refs/tags/v}
+          for i in $(seq 1 30); do curl -sf "https://pypi.org/pypi/kasm-use/$V/json" >/dev/null && exit 0; sleep 10; done; exit 1
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish

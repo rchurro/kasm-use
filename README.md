@@ -1,5 +1,7 @@
 # kasm-use
 
+<!-- mcp-name: io.github.rchurro/kasm-use -->
+
 Let an AI agent use a [Kasm Workspaces](https://kasmweb.com) desktop: start a session, look at the
 screen, click, type, press keys, scroll, and stop it — in plain language, from any MCP client
 (Claude Code, Claude Desktop, OpenCode, Cursor, …) or as a native [Hermes Agent](#hermes-agent) plugin.
