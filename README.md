@@ -63,7 +63,7 @@ MCP client are the most useful details.
 
 - Kasm Workspaces **1.19 or newer** (tested on 1.19.0).
 - A Kasm **API key**: Admin → Settings → Developers → API Keys → Add, then edit its permissions.
-  kasm-use 0.3 needs:
+  kasm-use 0.3 needs exactly these five (tested end to end with a key that has only these):
 
   - **Images View**, **User**, **Users Auth Session** — starting sessions (without them `kasm_start`
     fails with `Unauthorized`).
