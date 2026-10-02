@@ -70,8 +70,8 @@ MCP client are the most useful details.
   - **Sessions View** — session status and `kasm_list`.
   - **Sessions Delete** — `kasm_stop`.
 
-  It no longer uses **Sessions Modify** (Kasm's exec API) or **Session Recordings View** (Kasm's
-  screenshot API); remove them if you granted them for 0.2 or earlier. A missing permission shows
+  It no longer calls Kasm's exec API (**Sessions Modify**) or screenshot API (**Session Recordings
+  View**), so you can remove those if you granted them for 0.2 or earlier. A missing permission shows
   up as `Unauthorized` from the tool that needs it. Read [Security model](#security-model) first:
   these permissions are server-wide.
 - Your Kasm **user ID**, so sessions belong to you: Admin → Access Management → Users → open your user;
@@ -183,6 +183,9 @@ What that means for you:
 - **Give the agent its own Kasm user** and set `KASM_USER_ID` to it. That keeps the agent's sessions
   and tokens away from your own sessions if something goes wrong in kasm-use. (It is a seatbelt,
   not a wall: the key itself can still reach every user.)
+- **Kasm's disposability helps, but only so much.** Sessions are thrown away when they end (unless
+  you enable persistent profiles), so nothing an agent does survives the session. The exposure is in
+  sessions that are still running: one that's logged into an account, or that you're working in.
 - **There's no per-action policy yet** (rate limits, blocked keys, "ask the human first"). Input goes
   straight to VNC once the scope check passes. VNC only sees pixels and keystrokes, so rules like
   "never type into this window" can't be enforced at this layer.
