@@ -22,10 +22,11 @@ each running in its own container on a server you control. Click "Chrome" and yo
 Chrome in a browser tab; close it and it's wiped. kasm-use lets an AI agent sit down at those
 desktops and use them the way a person would.
 
-![Kasm dashboard with three sessions an agent is driving: Chrome on GitHub, Minetest in a loaded world, and a Terminal with command output](https://raw.githubusercontent.com/rchurro/kasm-use/main/docs/kasm-dashboard.jpg)
+[![Demo video: Hermes Agent runs three Kasm sessions in parallel with kasm-use (Chrome, Terminal, Minetest) while the dashboard shows them live](https://raw.githubusercontent.com/rchurro/kasm-use/main/docs/kasm-use-demo-poster.jpg)](https://github.com/rchurro/kasm-use/blob/main/docs/kasm-use-demo.mp4)
 
-*Three sessions started and driven by agents in parallel (Chrome, Minetest, Terminal), next to the
-workspaces you can start. Open any of them to watch live or take over.*
+*▶ [Watch the demo](https://github.com/rchurro/kasm-use/blob/main/docs/kasm-use-demo.mp4) (75 s, 3x speed): Hermes Agent runs a
+three-session demo with kasm-use. Chrome, Terminal and Minetest are started and driven in parallel
+while the Kasm dashboard shows each one live.*
 
 How the pieces connect:
 
