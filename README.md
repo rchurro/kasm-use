@@ -63,15 +63,17 @@ MCP client are the most useful details.
 
 - Kasm Workspaces **1.19 or newer** (tested on 1.19.0).
 - A Kasm **API key**: Admin → Settings → Developers → API Keys → Add, then edit its permissions.
-  This is the set kasm-use is tested with (no admin permissions needed):
+  kasm-use 0.3 needs:
 
-  - **Images View**, **User**, **Users Auth Session** — required to start sessions (confirmed:
-    without them `kasm_start` fails with `Unauthorized`).
-  - **Sessions View**, **Sessions Modify**, **Sessions Delete**, **Session Recordings View** —
-    listing, status, stopping, and the screenshot/exec fallback for sessions kasm-use didn't start.
+  - **Images View**, **User**, **Users Auth Session** — starting sessions (without them `kasm_start`
+    fails with `Unauthorized`).
+  - **Sessions View** — session status and `kasm_list`.
+  - **Sessions Delete** — `kasm_stop`.
 
-  A missing permission shows up as `Unauthorized` from the tool that needs it. If you find a smaller
-  set that works, please say so in an issue.
+  It no longer uses **Sessions Modify** (Kasm's exec API) or **Session Recordings View** (Kasm's
+  screenshot API); remove them if you granted them for 0.2 or earlier. A missing permission shows
+  up as `Unauthorized` from the tool that needs it. Read [Security model](#security-model) first:
+  these permissions are server-wide.
 - Your Kasm **user ID**, so sessions belong to you: Admin → Access Management → Users → open your user;
   the ID is in the page URL.
 - Any workspace image. Nothing is installed in the session for sessions kasm-use starts.
@@ -154,13 +156,42 @@ your mouse and keyboard.
 - The tool descriptions tell the agent never to type passwords, MFA codes or payment details and
   to hand CAPTCHAs to you, but that is guidance to the model, not enforcement.
 
+## Security model
+
+Two Kasm facts shape what kasm-use can and can't promise:
+
+- **A Kasm API key is server-wide, not per user.** Kasm has no way to limit a key to one user.
+  With the permissions above it can see and stop any user's sessions, and **Users Auth Session**
+  ("login on behalf of another user") lets it get a login for any user.
+- **The token `request_kasm` returns is a login for `KASM_USER_ID`, not for one session.** It opens
+  every session that user has (verified on Kasm 1.19.0: a token from one session opened another
+  session of the same user over VNC).
+
+So the boundary is kasm-use itself:
+
+- **Every tool only acts on sessions this kasm-use process started.** Any other `session_id` (yours,
+  another user's, one from before a restart) is refused, including for `kasm_look` and `kasm_stop`.
+  `kasm_list` only shows kasm-use's own sessions.
+- **The model never sees the API key or any token**, only the eight tools.
+- **No exec, no screenshot API.** kasm-use doesn't use Kasm's exec API (which can run commands in a
+  session as root) or its screenshot API, so it doesn't need those permissions.
+
+What that means for you:
+
+- **Treat the API key like an admin credential**, and run kasm-use only on a machine you trust.
+  Anyone who gets the key gets your Kasm, whatever kasm-use's code does.
+- **Give the agent its own Kasm user** and set `KASM_USER_ID` to it. That keeps the agent's sessions
+  and tokens away from your own sessions if something goes wrong in kasm-use. (It is a seatbelt,
+  not a wall: the key itself can still reach every user.)
+- **There's no per-action policy yet** (rate limits, blocked keys, "ask the human first"). Input goes
+  straight to VNC once the scope check passes. VNC only sees pixels and keystrokes, so rules like
+  "never type into this window" can't be enforced at this layer.
+
 ## Limitations
 
-- **Full control needs sessions kasm-use started.** Kasm only hands out the per-session login
-  token that VNC needs when a session is created, so kasm-use keeps it (in memory) for sessions
-  it starts. Sessions started elsewhere fall back to Kasm's exec API + `xdotool`, which must
-  already be in the image, and to Kasm's screenshot API, which is only fresh while someone is
-  viewing the session. Restarting the server forgets the tokens.
+- **Only sessions kasm-use started, and only until it restarts.** The session tokens live in
+  memory. After a restart, earlier sessions keep running in Kasm but kasm-use won't touch them;
+  stop them from the Kasm dashboard.
 - **Input reports "sent", not "succeeded".** The next screenshot is the confirmation.
 - **CAPTCHAs, passwords, MFA and payments are handed to you.** The tool descriptions tell the agent
   never to type them; open the session in Kasm and take over.

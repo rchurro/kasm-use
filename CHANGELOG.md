@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0 — 2026-10-02
+
+Scope hardening, prompted by a question about what an agent could reach.
+
+- **Tools only act on sessions kasm-use started** (in this process). `kasm_look`, `kasm_click`,
+  `kasm_type`, `kasm_key`, `kasm_scroll` and `kasm_stop` refuse any other `session_id`, and
+  `kasm_list` only shows kasm-use's own sessions. Before, an agent could screenshot or stop any
+  session the API key could see, including other users'. **Breaking:** "stop all my sessions"
+  style requests now only cover sessions kasm-use started.
+- **Removed the exec + `xdotool` fallback and the screenshot-API path.** On stock images the
+  fallback's input silently did nothing while reporting success. Everything now goes over VNC.
+  The API key no longer needs **Sessions Modify** or **Session Recordings View**.
+- `kasm_start` refuses to continue (and cleans up) if Kasm doesn't return a session token.
+- Documented the security model: Kasm API keys are server-wide, and session tokens are per-user.
+- Added offline tests (scope rules, DES, ZRLE, pointer format) and a CI workflow.
+
 ## 0.2.0 — 2026-10-01
 
 kasm-use now drives sessions through KasmVNC directly instead of `xdotool`.

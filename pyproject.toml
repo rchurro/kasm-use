@@ -1,6 +1,6 @@
 [project]
 name = "kasm-use"
-version = "0.2.0"
+version = "0.3.0"
 description = "Let AI agents drive Kasm Workspaces desktops (look, click, type) over MCP — works with stock Kasm images"
 readme = "README.md"
 license = "MIT"

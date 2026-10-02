@@ -1,5 +1,5 @@
 name: kasm
-version: 0.2.0
+version: 0.3.0
 description: >
   Operate any Kasm Workspaces session (Chrome, Terminal, desktops) through Kasm's own API:
   start a session, look at the screen, click, type, press keys, scroll, and stop it.
