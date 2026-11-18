@@ -55,3 +55,23 @@ def test_drag_holds_button_while_moving_then_releases(monkeypatch):
     assert [m[1] for m in sent[2:-1]] == [1, 1, 1, 1]        # held through every step
     assert sent[-2][2:4] == (50, 30)                         # last step reaches the target
     assert sent[-1][1:4] == (0, 50, 30)                      # release at the target
+
+
+def test_session_websocket_keeps_api_port(monkeypatch):
+    seen = {}
+
+    class Stop(Exception):
+        pass
+
+    def fake_ws(url, headers, ctx):
+        seen["url"], seen["origin"] = url, headers["Origin"]
+        raise Stop
+
+    monkeypatch.setattr(vnc, "_WebSocket", fake_ws)
+    for api_url, host in [("https://kasm.lan:6333", "kasm.lan:6333"), ("https://kasm.lan", "kasm.lan")]:
+        try:
+            vnc.Session(api_url, "/desktop/abc/vnc", "u", "t", None)
+        except Stop:
+            pass
+        assert seen["url"] == f"wss://{host}/desktop/abc/vnc/websockify"
+        assert seen["origin"] == f"https://{host}"

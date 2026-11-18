@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fix: the VNC websocket (`kasm_look`, `kasm_click`, …) now keeps the port from `KASM_API_URL`.
+  Before, it always connected to 443, so Kasm on another port (e.g. the linuxserver.io default
+  6333) failed with `websocket handshake failed: HTTP/1.1 302`. Fixes #1.
+
 ## 0.4.0 — 2026-10-10
 
 - **`kasm_drag`**: press at one point, move with the button held, release at another. For
