@@ -290,7 +290,7 @@ class Session:
     KEY_DELAY = 0.03  # KasmVNC drops keys sent back-to-back with no gap
 
     def __init__(self, api_url: str, vnc_path: str, username: str, session_token: str, ctx: ssl.SSLContext):
-        host = urllib.parse.urlsplit(api_url).netloc  # keep a non-default port
+        host = urllib.parse.urlsplit(api_url).netloc
         self.ws = _WebSocket(f"wss://{host}/{vnc_path.strip('/')}/websockify",
                              {"Cookie": f"username={username}; session_token={session_token}",
                               "Origin": f"https://{host}"}, ctx)
